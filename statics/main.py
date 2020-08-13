@@ -1,0 +1,24 @@
+# coding=utf-8
+"""
+__purpose__ = ...
+__author__  = JeeysheLu <Jeeyshe@gmail.com> <https://www.lujianxin.com/> [2020/7/23 19:31]
+
+    Copyright (c) 2020 JeeysheLu
+
+This software is licensed to you under the MIT License. Looking forward to making it better.
+"""
+
+from statics.static import *
+
+
+def run(user, group):
+    u = user.create("xxx")
+    group.add(user)
+
+def add(x: str, y: str) -> int:
+    pass
+
+
+if __name__ == '__main__':
+    call(add)
+    pass
