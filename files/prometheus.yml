@@ -1,0 +1,410 @@
+global:
+  scrape_interval: 1m
+  scrape_timeout: 50s
+  evaluation_interval: 15s
+  external_labels:
+    monitor: QFlame
+alerting:
+  alert_relabel_configs:
+  - source_labels: [product_type, ip]
+    separator: ;
+    regex: (.*);(.*)
+    target_label: routing_key
+    replacement: ${1}__${2}
+    action: replace
+  - source_labels: [tid, exporter]
+    separator: ;
+    regex: (.*);oracle
+    target_label: routing_key
+    replacement: ${1}oracle
+    action: replace
+  alertmanagers:
+  - static_configs:
+    - targets:
+      - 127.0.0.1:10012
+    scheme: http
+    path_prefix: alertmanager
+    timeout: 10s
+rule_files:
+  - /etc/prometheus/cloud.rule.yml
+  - /etc/prometheus/host.rule.yml
+  - /etc/prometheus/oracle.rule.yml
+  - /etc/prometheus/snmp.rule.yml
+  - /etc/prometheus/vm.rule.yml
+  - /etc/prometheus/redfish.rule.yml
+  - /etc/prometheus/bulkping.rule.yml
+  - /etc/prometheus/hardware.rule.yml
+  - /etc/prometheus/etcd.rule.yml
+scrape_configs:
+- job_name: IO
+  scrape_interval: 15s
+  scrape_timeout: 5s
+  metrics_path: /io_metrics
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/host.yml
+    refresh_interval: 5m
+- job_name: Host
+  scrape_interval: 1m
+  scrape_timeout: 50s
+  metrics_path: /node_metrics
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/host.yml
+    refresh_interval: 5m
+- job_name: Host_SSH
+  scrape_interval: 1m
+  scrape_timeout: 50s
+  metrics_path: /ssh
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/host.yml
+    refresh_interval: 5m
+  relabel_configs:
+  - separator: ;
+    regex: .*
+    target_label: __address__
+    replacement: 127.0.0.1:10005
+    action: replace
+  - source_labels: [__param_target]
+    separator: ;
+    regex: (.*)
+    target_label: instance
+    replacement: ${1}
+    action: replace
+- job_name: VM
+  scrape_interval: 1m
+  scrape_timeout: 50s
+  metrics_path: /node_metrics
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/vm.yml
+    refresh_interval: 5m
+- job_name: HostHardware
+  scrape_interval: 15m
+  scrape_timeout: 50s
+  metrics_path: /hardware_info_metrics
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/hardware.yml
+    refresh_interval: 5m
+- job_name: MySQL
+  scrape_interval: 1m
+  scrape_timeout: 50s
+  metrics_path: /mysql_metrics
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/mysql.yml
+    refresh_interval: 5m
+- job_name: BulkPing
+  scrape_interval: 2s
+  scrape_timeout: 2s
+  metrics_path: /bulkping_metrics
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/bulkping.yml
+    refresh_interval: 5m
+- job_name: etcdcluster
+  scrape_interval: 1m
+  scrape_timeout: 50s
+  metrics_path: /metrics
+  scheme: https
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/etcd.yml
+    refresh_interval: 5m
+  tls_config:
+    ca_file: /usr/local/etcd/ssl/ca.csr
+    cert_file: /usr/local/etcd/ssl/ca.pem
+    key_file: /usr/local/etcd/ssl/ca-key.pem
+    insecure_skip_verify: true
+- job_name: Redfish
+  scrape_interval: 15m
+  scrape_timeout: 3m
+  metrics_path: /metrics
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/redfish.yml
+    refresh_interval: 5m
+  relabel_configs:
+  - source_labels: [__address__]
+    separator: ;
+    regex: (.*)
+    target_label: __param_target
+    replacement: ${1}
+    action: replace
+  - source_labels: [__param_target]
+    separator: ;
+    regex: (.*)
+    target_label: instance
+    replacement: ${1}
+    action: replace
+  - separator: ;
+    regex: .*
+    target_label: __address__
+    replacement: 127.0.0.1:10002
+    action: replace
+  metric_relabel_configs:
+  - source_labels: [__name__]
+    separator: ;
+    regex: redfish_system_bios
+    target_label: __name__
+    replacement: node_dell_bios
+    action: replace
+  - source_labels: [__name__, exporter]
+    separator: ;
+    regex: node_dell_bios..*
+    target_label: exporter
+    replacement: hardware
+    action: replace
+  - source_labels: [__name__, job]
+    separator: ;
+    regex: node_dell_bios..*
+    target_label: job
+    replacement: HostHardware
+    action: replace
+- job_name: Snmp
+  scrape_interval: 10m
+  scrape_timeout: 8m
+  metrics_path: /snmp
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/snmp.yml
+    refresh_interval: 5m
+  relabel_configs:
+  - source_labels: [__address__]
+    separator: ;
+    regex: (.*)
+    target_label: __param_target
+    replacement: ${1}
+    action: replace
+  - source_labels: [__param_target]
+    separator: ;
+    regex: (.*)
+    target_label: instance
+    replacement: ${1}
+    action: replace
+  - separator: ;
+    regex: .*
+    target_label: __address__
+    replacement: 127.0.0.1:10003
+    action: replace
+- job_name: OracleAvailable
+  scrape_interval: 1m
+  scrape_timeout: 50s
+  metrics_path: /live
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/oracle.yml
+    refresh_interval: 5m
+  relabel_configs:
+  - source_labels: [__address__]
+    separator: ;
+    regex: (.*)
+    target_label: __param_target
+    replacement: ${1}
+    action: replace
+  - source_labels: [__param_target]
+    separator: ;
+    regex: (.*)
+    target_label: instance
+    replacement: ${1}
+    action: replace
+  - separator: ;
+    regex: .*
+    target_label: __address__
+    replacement: 127.0.0.1:10004
+    action: replace
+  metric_relabel_configs:
+  - source_labels: [tid]
+    separator: ;
+    regex: (.*)__\d+
+    target_label: instance_id
+    replacement: ${1}
+    action: replace
+  - source_labels: [tid, conid]
+    separator: ;
+    regex: (.*)__0;(.*)
+    target_label: tid
+    replacement: ${1}__${2}
+    action: replace
+  - source_labels: [ip, con_name, conid]
+    separator: ;
+    regex: (.*);(.*);(.*)
+    target_label: ip
+    replacement: ${1} ${2}
+    action: replace
+- job_name: Oracle
+  scrape_interval: 1m
+  scrape_timeout: 50s
+  metrics_path: /metrics
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/oracle.yml
+    refresh_interval: 5m
+  relabel_configs:
+  - source_labels: [__address__]
+    separator: ;
+    regex: (.*)
+    target_label: __param_target
+    replacement: ${1}
+    action: replace
+  - source_labels: [__param_target]
+    separator: ;
+    regex: (.*)
+    target_label: instance
+    replacement: ${1}
+    action: replace
+  - separator: ;
+    regex: .*
+    target_label: __address__
+    replacement: 127.0.0.1:10004
+    action: replace
+  metric_relabel_configs:
+  - source_labels: [tid]
+    separator: ;
+    regex: (.*)__\d+
+    target_label: instance_id
+    replacement: ${1}
+    action: replace
+  - source_labels: [tid, conid]
+    separator: ;
+    regex: (.*)__0;(.*)
+    target_label: tid
+    replacement: ${1}__${2}
+    action: replace
+  - source_labels: [ip, con_name, conid]
+    separator: ;
+    regex: (.*);(.*);(.*)
+    target_label: ip
+    replacement: ${1} ${2}
+    action: replace
+- job_name: OracleStorage
+  scrape_interval: 30m
+  scrape_timeout: 50s
+  metrics_path: /metrics_storage
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/oracle.yml
+    refresh_interval: 5m
+  relabel_configs:
+  - source_labels: [__address__]
+    separator: ;
+    regex: (.*)
+    target_label: __param_target
+    replacement: ${1}
+    action: replace
+  - source_labels: [__param_target]
+    separator: ;
+    regex: (.*)
+    target_label: instance
+    replacement: ${1}
+    action: replace
+  - separator: ;
+    regex: .*
+    target_label: __address__
+    replacement: 127.0.0.1:10004
+    action: replace
+  metric_relabel_configs:
+  - source_labels: [tid]
+    separator: ;
+    regex: (.*)__\d+
+    target_label: instance_id
+    replacement: ${1}
+    action: replace
+  - source_labels: [tid, conid]
+    separator: ;
+    regex: (.*)__0;(.*)
+    target_label: tid
+    replacement: ${1}__${2}
+    action: replace
+  - source_labels: [ip, con_name, conid]
+    separator: ;
+    regex: (.*);(.*);(.*)
+    target_label: ip
+    replacement: ${1} ${2}
+    action: replace
+- job_name: OracleLog
+  scrape_interval: 1d
+  scrape_timeout: 50s
+  metrics_path: /metrics_log
+  scheme: http
+  file_sd_configs:
+  - files:
+    - /etc/prometheus/oracle.yml
+    refresh_interval: 5m
+  relabel_configs:
+  - source_labels: [__address__]
+    separator: ;
+    regex: (.*)
+    target_label: __param_target
+    replacement: ${1}
+    action: replace
+  - source_labels: [__param_target]
+    separator: ;
+    regex: (.*)
+    target_label: instance
+    replacement: ${1}
+    action: replace
+  - separator: ;
+    regex: .*
+    target_label: __address__
+    replacement: 127.0.0.1:10004
+    action: replace
+  metric_relabel_configs:
+  - source_labels: [tid]
+    separator: ;
+    regex: (.*)__\d+
+    target_label: instance_id
+    replacement: ${1}
+    action: replace
+  - source_labels: [tid, conid]
+    separator: ;
+    regex: (.*)__0;(.*)
+    target_label: tid
+    replacement: ${1}__${2}
+    action: replace
+  - source_labels: [ip, con_name, conid]
+    separator: ;
+    regex: (.*);(.*);(.*)
+    target_label: ip
+    replacement: ${1} ${2}
+    action: replace
+- job_name: Cloud_PS
+  file_sd_configs:
+    - files:
+      - /etc/prometheus/cloud.yml
+      refresh_interval: 5m
+  scrape_interval: 1m
+  scrape_timeout: 50s
+  metrics_path: /status
+  scheme: http
+- job_name: Cloud_FS
+  file_sd_configs:
+    - files:
+      - /etc/prometheus/cloud.yml
+      refresh_interval: 5m
+  scrape_interval: 30m
+  scrape_timeout: 50s
+  metrics_path: /filesystem
+  scheme: http
+- job_name: prometheus
+  scrape_interval: 1m
+  scrape_timeout: 50s
+  metrics_path: /prometheus/metrics
+  scheme: http
+  static_configs:
+  - targets:
+    - 127.0.0.1:10011
