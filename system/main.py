@@ -13,3 +13,13 @@ import sys
 if __name__ == '__main__':
     arg = sys.argv
     print(arg)
+
+    s = [
+        {"code": 1000, "message": "xxx"},
+        {"code": 1003, "message": "xxx"},
+        {"code": 1004, "message": "xxx"},
+        {"code": 1002, "message": "xxx"},
+        {"code": 1005, "message": "xxx"},
+    ]
+
+    print(sorted(s))
