@@ -1,0 +1,800 @@
+#db_available
+[[metric]]
+metricName = "db_available_check"
+groupName = "live"
+metricLabels = ["conid","con_name" ]
+metricDesc = { value= "Gauge metric with query from dual when db is noncdb or v$containers when db is cdb or pdb" }
+scraperFlags=true   # 指标采集开关，可关闭本配置下所有指标
+ignorezeroresult = false
+metricGroup="/live"
+request = "select 1 as value, '' as con_name from dual"
+
+#db_pdb_available 由于配置中不能存在相同的指标名[metricName]，而此处发送的指标名又需要与上面db_available_check相同，此处通过metricKey实现
+#但是同一个指标的metricDesc必须是一致的，不一致会出错
+[[metric]]
+metricName = "pdb_available_check"
+groupName = "live"
+metricLabels = ["conid","con_name"]
+metricDesc = { db_available_check= "Gauge metric with query from dual when db is noncdb or v$containers when db is cdb or pdb" }
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/live"
+request = "select name as con_name, con_id as conid, decode(open_mode,'READ WRITE',1,'READ ONLY',1,0) db_available_check from v$containers"
+
+#db_available for metrics path output
+[[metric]]
+metricName = "db_available_check_metrics"
+groupName = "live"
+metricLabels = ["conid","con_name" ]
+metricDesc = { db_available_check= "Gauge metric with query from dual when db is noncdb or v$containers when db is cdb or pdb" }
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = "select 1 as db_available_check, '' as con_name from dual"
+
+#db_pdb_available for metrics path output 由于配置中不能存在相同的指标名[metricName]，而此处发送的指标名又需要与上面db_available_check相同，此处通过metricKey实现
+[[metric]]
+metricName = "pdb_available_check_metrics"
+groupName = "live"
+metricLabels = ["conid","con_name"]
+metricDesc = { db_available_check= "Gauge metric with query from dual when db is noncdb or v$containers when db is cdb or pdb" }
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = "select name as con_name, con_id as conid, decode(open_mode,'READ WRITE',1,'READ ONLY',1,0) db_available_check from v$containers"
+
+#db_uptime
+[[metric]]
+metricName = "db_uptime"
+groupName = "uptime"
+metricLabels = ["conid","con_name"]
+metricDesc = { value= "Gauge metric with oracle startup time from v$instance and v$containers" }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = '''
+SELECT 0 conid, '' con_name, TO_NUMBER(sysdate - startup_time) * 24 * 60 * 60  as value FROM v$instance
+union all
+select con_id as conid, name as con_name, TO_NUMBER(sysdate - cast(open_time as date))* 24 * 60 * 60 as value from v$containers
+ '''
+
+#db_status.status
+[[metric]]
+metricName = "db_status"
+groupName = "dbStatus"
+#metricLabels = ["conid" ]
+metricLabels = []
+metricDesc = { status= "Gauge metric with the status of backup database from v$instance" }
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = '''
+select case
+           when status = 'STARTED' then 1
+           when status = 'MOUNTED' then 2
+           else 3 end as status
+from v$instance
+'''
+
+#db_status.stb_rfs_health
+[[metric]]
+metricName = "stb_rfs_health"
+groupName = "dbStatus"
+#metricLabels = ["conid", "thread_no" ]
+metricLabels = ["thread_no" ]
+metricDesc = { value= "Gauge metric with backup database standby rfs healthy from v$managed_standby" }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = "select sum(BLOCK#) as value, thread# as thread_no from v$managed_standby where PROCESS='RFS' and thread# >0  group by THREAD#"
+
+#db_status.active_status
+[[metric]]
+metricName = "active_status"
+groupName = "dbStatus"
+#metricLabels = ["conid" ]
+metricLabels = []
+metricDesc = { value= "Gauge metric with backup database standby active log status from v$instance" }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = "select count(*) as value from v$standby_log where STATUS = 'ACTIVE'"
+
+#db_sys_time_model
+[[metric]]
+metricName = "db_sys_time_model"
+groupName = "timeCpu"
+metricLabels = ["conid","con_name"]
+metricDesc = { value= "Gauge metric with db time and cpu message from v$sys_time_model" }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+fieldtoappend="stat_name"
+ignoreMetricName=true
+request = '''
+select t1.con_id conid, t2.name con_name, t1.stat_name stat_name, Round(t1.value / 1000000) as value
+from v$con_sys_time_model t1,
+     v$containers t2
+where t1.con_id = t2.con_id
+  and t1.stat_name in ('DB time', 'DB CPU')
+'''
+
+#db_gap
+[[metric]]
+metricName = "archive_gap"
+groupName = "gap"
+#metricLabels = ["conid" ]
+metricLabels = []
+metricDesc = { value="Generic counter metric from v$managed_standby " }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = "select decode(count(*) ,0, 0, 1) as value from v$managed_standby where status='WAIT_FOR_GAP'"
+
+#db_parameter
+[[metric]]
+metricName = "db_parameter"
+groupName = "parameter"
+metricLabels = ["conid","con_name"]
+metricDesc = { value="Gauge metric with sga_target and cpu_count from v$parameter " }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = "select case when name = 'sga_target' then 'sga' else name end as name, value, '' con_name  from v$parameter where name in ('sga_target','cpu_count')"
+fieldtoappend="name"
+ignoreMetricName=true
+
+#db_parameter.pdb_sga
+[[metric]]
+metricName = "pdb_sga_target"
+groupName = "parameter"
+metricLabels = ["conid","con_name"]
+metricDesc = { value="Gauge metric with sga_target and cpu_count from v$parameter " }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = '''
+select sys_context('USERENV', 'CON_ID') as conid, 'sga' as name, t1.value as value, t2.name as con_name
+from v$parameter t1,v$containers t2
+where t1.name = 'sga_target' and t1.con_id = t2.con_id
+'''
+fieldtoappend="name"
+ignoreMetricName=true
+metricParser="pdbSwitch" # 使用pdbSwitch解析器，将会切换到每一个pdb下方执行sql查询，从而得到所有pdb的指标信息
+
+#db_process
+[[metric]]
+metricName = "processes"
+groupName = "processes"
+metricLabels = ["conid","con_name"]
+metricDesc = {processes="Gauge metric with count of process from v$process ",pga_used_mem="Gauge metric with pga used memory from v$process ", pga_alloc_mem="Gauge metric with pga allocated memory from v$process " }
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = '''
+select conid, con_name, max(processes) processes, max(pga_used_mem) pga_used_mem, max(pga_alloc_mem) pga_alloc_mem from (
+select con_id conid, name con_name, 0 processes, 0 pga_used_mem, 0 pga_alloc_mem from v$containers union
+select t1.con_id conid,t2.name con_name, count(*) processes, sum(t1.PGA_USED_MEM) pga_used_mem, sum(t1.PGA_ALLOC_MEM) pga_alloc_mem
+from v$process t1, v$containers t2  where t1.con_id = t2.con_id group by t1.con_id, t2.name) group by conid, con_name
+'''
+
+#db_redo
+[[metric]]
+metricName = "db_redo"
+groupName = "redo"
+metricLabels = ["conid","con_name"]
+metricDesc = { value="Gauge metric with count of available redo message from v$log " }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = "select 0 conid, '' as con_name, count(*) as value from v$log where status in ('INACTIVE','UNUSED')"
+
+#db_scheduler_job
+[[metric]]
+metricName = "scheduler_job"
+groupName = "scheduler"
+metricLabels = ["conid","con_name"]
+metricDesc = { value="Gauge metric with count of failed transaction from dba_scheduler_jobs " }
+scraperFlags=true
+ignorezeroresult = false
+singleRecord=false # 每一行结果都要
+metricGroup="/metrics"
+request = '''
+select c.conid, c.con_name, count(*) value from
+(select t1.con_id conid,
+       t2.name con_name,
+       t1.owner || '.' || t1.job_name as value
+  from cdb_scheduler_jobs t1, v$containers t2
+ where t1.state = 'FAILED'
+   and t1.con_id = t2.con_id
+union all
+select t1.con_id conid, t2.name con_name, to_char(t1.job) as value
+  from cdb_jobs t1, v$containers t2
+ where t1.failures > 0
+   and broken = 'N'
+   and t1.con_id = t2.con_id) c
+   group by c.conid, c.con_name
+'''
+
+#db_latency
+[[metric]]
+metricName = "db_latency"
+groupName = "latency"
+metricLabels = ["conid" ]
+metricDesc = { value="Gauge metric with transport lag and apply lag latency from v$dataguard_stats " }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+ignoreMetricName=true
+fieldtoappend="name"
+rowFmtFunc={value="latencyTimeFmt"}
+request = '''
+select case
+           when name = 'transport lag' then 'transport latency'
+           when name = 'apply lag' then 'apply latency' end as name,
+       value
+from v$dataguard_stats
+where name in ('transport lag', 'apply lag')
+'''
+
+#db_archived_log
+[[metric]]
+metricName = "db_archived_log"
+groupName = "archive"
+#metricLabels = ["conid"]
+metricLabels = []
+metricDesc = { value="Gauge metric with capacity of archived log in one day message from v$archived_log " }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics_log"
+request = '''
+SELECT SUM(BLOCKS * BLOCK_SIZE) / 1024 / 1024 as value, TO_CHAR(NEXT_TIME, 'yyyymmdd') as time
+    FROM v$archived_log
+    WHERE CREATOR in ('LGWR','ARCH')
+	AND standby_dest='NO'
+    AND first_time > SYSDATE - 7
+    AND TO_CHAR(NEXT_TIME, 'yyyymmdd') = to_char(sysdate-1,'yyyymmdd')
+    GROUP BY TO_CHAR(NEXT_TIME, 'yyyymmdd')
+'''
+
+#db_archived_log_hour
+[[metric]]
+metricName = "db_archived_log_hour"
+groupName = "archiveHour"
+#metricLabels = ["conid"]
+metricLabels = []
+metricDesc = { value="Gauge metric with the capacity of archived log in the last hour from v$archived_log " }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics_log"
+request = '''
+SELECT SUM(b.blocks * b.block_size) / 1024 / 1024 as value, TO_CHAR(a.next_time, 'yyyymmddhh24') as time
+	FROM v$archived_log a, (SELECT MAX(blocks) blocks, MAX(block_size) block_size, sequence# FROM v$archived_log GROUP BY sequence#) b
+	WHERE a.CREATOR in ('LGWR','ARCH')
+	AND a.standby_dest = 'NO'
+	AND a.sequence# = b.sequence#
+	AND TO_CHAR(a.NEXT_TIME, 'yyyymmddhh24') = TO_CHAR(sysdate -1/24, 'yyyymmddhh24')
+	GROUP BY TO_CHAR(a.NEXT_TIME, 'yyyymmddhh24')
+'''
+
+#db_asm
+[[metric]]
+metricName = "db_asm"
+groupName = "asm"
+metricLabels = ["conid","name"]
+metricDesc = { db_asm_used="Gauge metric with ASM diskgorup used percent from v$asm_diskgroup ",db_asm_offline="Gauge metric with ASM diskgorup offline disk from v$asm_diskgroup "}
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics_storage"
+request = '''
+select name, 100*(total_mb-free_mb)/total_mb as db_asm_used, offline_disks as db_asm_offline
+from v$asm_diskgroup
+where total_mb<>0 and state in ('MOUNTED','CONNECTED')
+'''
+
+#db_manage_standby.mrp0
+#db_manage_standby.rfs
+[[metric]]
+metricName = "db_standby_process_status"
+groupName = "managerStandby"
+metricLabels = ["conid","con_name"]
+metricDesc = { value="Gauge metric with standby mrp0 and rfs process status from v$managed_standby "}
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+fieldtoappend="name"
+ignoreMetricName=true
+request = '''
+select t1.conid conid, t1.name name, t1.value value,t2.name con_name from(
+select conid, name,  max(value) value from (
+select con_id conid, 'mrp0' name, 0 value from v$containers union
+select con_id conid, 'rfs' name, 0 value from v$containers union
+select con_id, 'mrp0' as name, decode(count(*) ,0, 0, 1) as value from v$managed_standby where process = 'MRP0' group by con_id
+union all
+select con_id, 'rfs' as name, decode(count(*) ,0, 0, 1) as value from v$managed_standby where process = 'RFS' group by con_id
+) t1 group by conid, name)t1, v$containers t2 where t1.conid = t2.con_id
+'''
+
+#db_manage_standby.stb_process
+#important !!! 相同指标名的情况下, 指标描述[sequence_num,block_num]必须一致
+[[metric]]
+metricName = "stb_process"
+groupName = "managerStandby"
+metricLabels = ["conid","con_name","thread", "val_type"]
+metricDesc = { sequence_num="Gauge metric with standby sequence_number and block_number of mrp0 process from v$managed_standby ", block_num="Gauge metric with standby sequence_number and block_number of mrp0 process from v$managed_standby "}
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+constLabelValues = {"val_type"={sequence_num="sequence", block_num="block"}}
+singleRecord=false #多行数据只处理一行
+request = '''
+select t1.con_id conid, t2.name con_name,t1.thread# as thread, t1.sequence# as sequence_num, t1.block# as block_num
+from v$managed_standby t1,v$containers t2
+where t1.con_id = t2.con_id and t1.process like 'MR%'
+'''
+
+#db_recovery
+[[metric]]
+metricName = "db_recovery"
+groupName = "recovery"
+subsystem = "last"
+#metricLabels = ["conid" ]
+metricLabels = []
+metricDesc = { value= "Gauge metric with recovery metric from v$recovery_progress" }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+IgnoreMetricName=true
+fieldtoappend="item"
+request = '''
+select item, sofar as value from v$recovery_progress where start_time = (select max(start_time)
+from v$recovery_progress)
+and item in ('Active Apply Rate', 'Average Apply Rate', 'Apply Time per Log', 'Checkpoint Time per Log', 'Log Files', 'Maximum Apply Rate', 'Redo Applied', 'Active Time', 'Elapsed Time', 'Standby Apply Lag')
+'''
+
+#db_recovery.last_redo
+[[metric]]
+metricName = "db_recovery_last_redo"
+groupName = "recovery"
+subsystem = "last"
+#metricLabels = ["conid" ]
+metricLabels = []
+metricDesc = { applied_redo_sofar= "Gauge metric with last applied redo sofar value from v$recovery_progress", applied_redo_timestamp="Gauge metric with last applied redo timestamp from v$recovery_progress", applied_redo_scn="Gauge metric with last applied redo scn from v$recovery_progress"}
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+singleRecord=true #多行数据只处理一行
+rowFmtFunc={applied_redo_timestamp="redoTimeFmt"}
+request = '''
+select item, sofar as applied_redo_sofar, to_char(timestamp, 'yyyy-mm-dd hh24:mi:ss') as applied_redo_timestamp,
+case when comments is not null then substr(comments,instr(comments,':') +1) else comments end as applied_redo_scn
+from v$recovery_progress
+where start_time = (select max(start_time) from v$recovery_progress) and item = 'Last Applied Redo'
+'''
+
+#db_transaction
+[[metric]]
+metricName = "db_transaction"
+groupName = "transaction"
+metricLabels = ["conid","con_name" ]
+metricDesc = { db_transaction_count= "Gauge metric with the number of transaction from v$transaction", db_max_blocks="Gauge metric with transaction max blocks from v$transaction", db_max_duration= "Gauge metric with transaction max duration from v$transaction"}
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = '''
+SELECT
+	c.con_id conid,
+	c.name con_name,
+	trans_cnt db_transaction_count,
+	round( max_blocks * 1000, 2 ) AS db_max_blocks,
+	round( max_duaration, 0 ) AS db_max_duration
+FROM
+	(
+	SELECT
+		con_id,
+		count( * ) AS trans_cnt,
+		nvl( max( used_ublk ), 0 ) / 1000 max_blocks,
+		nvl( ( SYSDATE - min( to_date( start_time, 'mm/dd/yy hh24:mi:ss' ) ) ), 0 ) * 1440 * 60 max_duaration
+	FROM
+		v$transaction
+	GROUP BY
+		con_id
+	) t,
+	v$containers c
+WHERE
+	t.con_id = c.con_id
+'''
+
+#db_undo
+[[metric]]
+metricName = "db_undo"
+groupName = "undo"
+metricLabels = ["conid", "con_name"]
+metricDesc = { value= "Gauge metric with undo of use condition message from v$undostat"}
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+metricParser="pdbSwitch" # 使用pdbSwitch解析器，将会切换到每一个pdb下方执行sql查询，从而得到所有pdb的指标信息
+request = '''
+select t1.con_id conid, t1.name con_name, case
+                                           when undo_percent >= 100 then 100
+                                           when undo_percent is null then 0
+                                           else undo_percent
+    end value
+from (
+         select u.con_id, trunc(100 * u.undouse / a.undosum) as undo_percent
+         from (select con_id, sum(undoblks) * 8 * 1024 as undouse
+               from v$undostat
+               where begin_time > (sysdate - (select value / 60 / 60 / 24
+                                              from v$parameter
+                                              where name = 'undo_retention'))
+               group by con_id) u,
+              (select con_id, sum(bytes) as undosum
+               from cdb_data_files
+               where tablespace_name in (select upper(value)
+                                         from v$parameter
+                                         where name = 'undo_tablespace')
+               group by con_id) a
+         where u.con_id = a.con_id
+     ) t, v$containers t1
+where t.con_id = t1.con_id
+'''
+
+#db_sysstat
+[[metric]]
+metricName = "db_sysstat"
+groupName = "sysstat"
+metricLabels = ["conid", "con_name"]
+metricDesc = { value= "Gauge metric with db sysstat from v$sysstat" }
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+fieldtoappend="name"
+ignoreMetricName=true
+request = '''
+select t1.con_id conid, t1.name con_name, t.name, t.value
+from
+(
+    select
+        con_id,
+        case
+            when name = 'gc cr block receive time' then 'rac gc cr block receive time'
+            when name = 'gc current block receive time' then 'rac gc current block receive time'
+            when name = 'gc cr block send time' then 'rac gc cr block send time'
+            when name = 'gc current block send time' then 'rac gc current block send time'
+
+            when name = 'gc cr blocks received' then 'rac gc cr blocks received'
+            when name = 'gc cr blocks served' then 'rac gc cr blocks served'
+            when name = 'gc current blocks received' then 'rac gc current blocks received'
+            when name = 'gc current blocks served' then 'rac gc current blocks served'
+            else name
+        end as name,
+        case
+            when name = 'gc cr block receive time' then value * 10
+            when name = 'gc current block receive time' then value * 10
+            when name = 'gc cr block send time' then value * 10
+            when name = 'gc current block send time' then value * 10
+            else value
+        end as value
+    from v$con_sysstat
+    where name IN
+          ('execute count',
+           'user commits',
+           'session logical reads',
+           'redo size',
+           'redo writes',
+           'parse count (hard)',
+           'parse count (total)',
+           'gc cr blocks received',
+           'gc current blocks received',
+           'gc cr blocks served',
+           'gc current blocks served',
+           'gc cr block receive time',
+           'gc current block receive time',
+           'gc cr block send time',
+           'gc current block send time',
+           'bytes sent via SQL*Net to client',
+           'bytes received via SQL*Net from client',
+           'physical read IO requests',
+           'physical read bytes',
+           'physical write IO requests',
+           'physical write bytes')
+) t, v$containers t1
+where t.con_id = t1.con_id
+'''
+
+#db_session.user_active_session
+[[metric]]
+metricName = "user_active_session"
+groupName = "session"
+metricLabels = ["conid", "con_name"]
+metricDesc = { aas= "Gauge metric with user active sessions from v$session",cpu_aas="Gauge metric with cpu aas from v$session", io_aas="Gauge metric with io aas from v$session", commit_aas="Gauge metric with commit aas from v$session", cluster_aas="Gauge metric with cluster aas from v$session", application_aas="Gauge metric with application aas from v$session", other_aas="Gauge metric with other aas from v$session"}
+# 支持SQL alias 名称不能超过30个字符
+aliasMetricKey = {aas = "user_active_sessions_aas", cpu_aas="user_active_sessions_cpu_aas", io_aas="user_active_sessions_io_aas", commit_aas="user_active_sessions_commit_aas", cluster_aas="user_active_sessions_cluster_aas", application_aas="user_active_sessions_appli_aas", other_aas="user_active_sessions_other_aas"}
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+singleRecord=false # sql输出的每一行结果都要处理
+request = '''
+select t1.con_id conid, t1.name con_name, t.aas, t.cpu_aas, t.io_aas, t.commit_aas, t.Cluster_aas, t.Application_aas, t.other_aas
+from
+    (
+        select con_id,
+               COUNT (*) aas,
+               SUM (CASE WHEN state != 'WAITING' THEN 1 ELSE 0 END) cpu_aas,
+               SUM (CASE WHEN state = 'WAITING' and wait_class = 'User I/O' THEN 1 ELSE 0 END) io_aas,
+               SUM (CASE WHEN state = 'WAITING' and wait_class = 'Commit' THEN 1 ELSE 0 END) commit_aas,
+               SUM (CASE WHEN state = 'WAITING' and wait_class = 'Cluster' THEN 1 ELSE 0 END) Cluster_aas,
+               SUM (CASE WHEN state = 'WAITING' and wait_class = 'Application' THEN 1 ELSE 0 END) Application_aas,
+               COUNT (*)
+                   - SUM (CASE WHEN state != 'WAITING' THEN 1 ELSE 0 END)
+                   - SUM (CASE WHEN state = 'WAITING' and wait_class = 'User I/O' THEN 1 ELSE 0 END)
+                   - SUM (CASE WHEN state = 'WAITING' and wait_class = 'Commit' THEN 1 ELSE 0 END)
+                   - SUM (CASE WHEN state = 'WAITING' and wait_class = 'Cluster' THEN 1 ELSE 0 END)
+                   - SUM (CASE WHEN state = 'WAITING' and wait_class = 'Application' THEN 1 ELSE 0 END) other_aas
+        from v$session a
+        where a.status = 'ACTIVE' AND a.TYPE = 'USER' AND (a.wait_class != 'Idle')
+        group by con_id
+    ) t, v$containers t1
+where t.con_id = t1.con_id
+'''
+
+#db_session.blocking_session
+[[metric]]
+metricName = "blocking_session"
+groupName = "session"
+metricLabels = ["conid", "con_name"]
+metricDesc = { value= "Gauge metric with number of blocking sessions from v$session"}
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+request = '''
+select t1.con_id conid, t1.name con_name, t.value
+from
+(
+    SELECT con_id, count(*) value
+    FROM
+    (
+          SELECT con_id,
+               sid,
+               username,
+               serial#,
+               status,
+               process,
+               NVL(sql_id, 0),
+               sql_address,
+               blocking_session,
+               wait_class,
+               event,
+               p1,
+               p2,
+               p3,
+               seconds_in_wait
+          FROM v$session
+          WHERE blocking_session_status = 'VALID'
+          )
+    group by con_id
+) t, v$containers t1
+where t.con_id = t1.con_id
+'''
+
+# db_system_event
+[[metric]]
+metricName = "db_system_event"
+groupName = "systemEvent"
+metricLabels = ["conid", "con_name"]
+metricDesc = { total_waits= "Gauge metric with total waits and time waited system event from v$system_event", time_waited="Gauge metric with total waits and time waited system event from v$system_event"}
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics"
+fieldtoappend="event"
+request = '''
+select t1.con_id conid, t1.name con_name, t.event, t.total_waits, t.time_waited
+from
+    (
+        select con_id, case when event = 'log file switch (checkpoint incomplete)' then 'log file switch' else event end event, total_waits, time_waited * 10 time_waited
+        from V$CON_SYSTEM_EVENT
+        where event IN
+              ('db file sequential read',
+               'db file scattered read',
+               'log file sync',
+               'log file parallel write',
+               'direct path read',
+               'direct path write',
+               'log file switch (checkpoint incomplete)')
+) t, v$containers t1
+where t.con_id = t1.con_id
+'''
+
+# db_tablespace.dba_history_tablespace
+# UNDO类型的表空间无法计算使用率，但可以查到已经使用大小
+[[metric]]
+metricName = "dba_history_tablespace"
+groupName = "tablespace"
+metricLabels = ["conid", "con_name", "tablespacename"]
+metricDesc = { histablespace_current_size= "Gauge metric with current size from DBA_HIST_TBSPC_SPACE_USAGE, v$tablespace, dba_tablespaces", histablespace_free_size="Gauge metric with free size from DBA_HIST_TBSPC_SPACE_USAGE, v$tablespace, dba_tablespaces", histablespace_used_size="Gauge metric with used size from DBA_HIST_TBSPC_SPACE_USAGE, v$tablespace, dba_tablespaces"}
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics_storage"
+request = '''
+select t1.con_id conid, t1.name con_name, t.tablespacename, t.histablespace_current_size, t.histablespace_free_size, t.histablespace_used_size
+from
+(
+    select
+         a.con_id,
+         b.tablespace_name tablespacename,
+         (a.tablespace_size * b.block_size) histablespace_current_size,
+         (((a.TABLESPACE_MAXSIZE * b.block_size)) - ((a.tablespace_usedsize * b.block_size))) histablespace_free_size,
+         (a.tablespace_usedsize * b.block_size) histablespace_used_size
+    from cdb_HIST_TBSPC_SPACE_USAGE a, v$tablespace d, cdb_tablespaces b
+    where a.TABLESPACE_ID = d.ts#
+    and a.snap_id >= (select max(snap_id) from cdb_HIST_TBSPC_SPACE_USAGE i where i.con_id=a.con_id)
+    and d.name = b.tablespace_name
+    and a.con_id=d.con_id
+    and d.con_id=b.con_id
+) t, v$containers t1
+where t.con_id = t1.con_id
+'''
+
+# db_tablespace.dba_tablespace
+[[metric]]
+metricName = "dba_tablespace"
+groupName = "tablespace"
+metricLabels = ["conid", "con_name", "tablespacename"]
+metricDesc = { dba_tablespace_used_percent= "Gauge metric with maximum percent of available tablespace from dba_tablespaces, dba_data_files", dba_tablespace_free_size="Gauge metric with free size from dba_tablespaces, dba_data_files",dba_tablespace_used_pct_now="Gauge metric with current already used ratio of tablespace from dba_tablespaces, dba_data_files"}
+# 支持SQL alias 名称不能超过30个字符
+aliasMetricKey = {dba_tablespace_used_pct_now = "dba_tablespace_used_percent_now"}
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics_storage"
+request = '''
+WITH df AS
+ (SELECT CON_ID,
+         tablespace_name,
+         SUM(bytes) bytes,
+         sum(decode(autoextensible,
+                    'YES',
+                    decode(sign(maxbytes - bytes),
+                           '1',
+                           trunc(maxbytes),
+                           '-1',
+                           trunc(bytes),
+                           '0',
+                           trunc(maxbytes)),
+                    'NO',
+                    trunc(bytes))) as total_bytes,
+         COUNT(*) cnt,
+         DECODE(SUM(DECODE(autoextensible, 'NO', 0, 1)), 0, 'NO', 'YES') autoext
+    FROM cdb_data_files
+   GROUP BY con_id, tablespace_name),
+um AS
+ (SELECT con_id, tablespace_name, used_space ub, used_percent
+    FROM cdb_tablespace_usage_metrics)
+SELECT f.con_id as conid,
+       c.name as con_name,
+       d.tablespace_name tablespacename,
+       round(NVL((a.bytes - NVL(f.bytes, 0)) / a.bytes * 100, 0), 2) dba_tablespace_used_pct_now,
+       round(NVL(a.bytes, 0), 2) ,
+       round(u.used_percent, 2) dba_tablespace_used_percent,
+       round(NVL(a.total_bytes, 2)) tab_max_size,
+       a.total_bytes-a.total_bytes*0.01*u.used_percent dba_tablespace_free_size,
+       a.autoext,
+       round(NVL(a.bytes - NVL(f.bytes, 0), 0), 4),
+       round(NVL(f.bytes, 0), 4),
+       d.status,
+       a.cnt,
+       d.contents,
+       d.extent_management,
+       d.segment_space_management
+  FROM cdb_tablespaces d,
+       v$containers c,
+       df a,
+       um u,
+       (SELECT con_id, tablespace_name, SUM(bytes) bytes
+          FROM cdb_free_space
+         GROUP BY con_id, tablespace_name) f
+ WHERE d.tablespace_name = a.tablespace_name(+)
+   AND d.tablespace_name = f.tablespace_name(+)
+   AND d.tablespace_name = u.tablespace_name(+)
+   and d.con_id = a.con_id
+   and d.con_id = f.con_id
+   and d.con_id = u.con_id
+   and d.con_id = c.con_id
+   AND NOT d.contents = 'UNDO'
+   AND NOT (d.extent_management = 'LOCAL' AND d.contents = 'TEMPORARY')
+UNION ALL
+SELECT tf.con_id,
+       c.name,
+       d.tablespace_name,
+       round(NVL((u.ub * d.block_size) / tf.bytes * 100, 0), 2),
+       round(NVL(tf.bytes, 0), 2),
+       round(u.used_percent, 2),
+       round(NVL(tf.total_bytes, 2)),
+       tf.total_bytes-tf.total_bytes*0.01*u.used_percent dba_tablespace_free_size,
+       tf.autoext,
+       round(NVL(u.ub * d.block_size, 0), 4) dd,
+       round((NVL(tf.bytes, 0) - NVL(u.ub * d.block_size, 0)), 4),
+       d.status,
+       tf.cnt,
+       d.contents,
+       d.extent_management,
+       d.segment_space_management
+  FROM cdb_tablespaces d,
+       v$containers c,
+       um u,
+       (SELECT con_id,
+               tablespace_name,
+               SUM(bytes) bytes,
+               sum(decode(autoextensible,
+                          'YES',
+                          decode(sign(maxbytes - bytes),
+                                 '1',
+                                 trunc(maxbytes),
+                                 '-1',
+                                 trunc(bytes),
+                                 '0',
+                                 trunc(maxbytes)),
+                          'NO',
+                          trunc(bytes))) as total_bytes,
+               COUNT(*) cnt,
+               DECODE(SUM(DECODE(autoextensible, 'NO', 0, 1)),
+                      0,
+                      'NO',
+                      'YES') autoext
+          FROM cdb_temp_files
+         GROUP BY con_id, tablespace_name) tf
+ WHERE d.tablespace_name = tf.tablespace_name(+)
+   AND d.tablespace_name = u.tablespace_name(+)
+   AND d.con_id = tf.con_id
+   AND d.con_id = u.con_id
+   AND d.con_id = c.con_id
+   AND d.extent_management = 'LOCAL'
+   AND d.contents = 'TEMPORARY'
+'''
+
+#db_available for metrics path output
+[[metric]]
+metricName = "db_available_check_storage"
+groupName = "tablespace"
+metricLabels = ["conid","con_name" ]
+metricDesc = { db_available_check= "Gauge metric with query from dual when db is noncdb or v$containers when db is cdb or pdb" }
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics_storage"
+request = "select 1 as db_available_check, '' as con_name from dual"
+
+#db_pdb_available for metrics path output 由于配置中不能存在相同的指标名[metricName]，而此处发送的指标名又需要与上面db_available_check相同，此处通过metricKey实现
+[[metric]]
+metricName = "pdb_available_check_storage"
+groupName = "tablespace"
+metricLabels = ["conid","con_name"]
+metricDesc = { db_available_check= "Gauge metric with query from dual when db is noncdb or v$containers when db is cdb or pdb" }
+useMetricDescKey=true
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics_storage"
+request = "select name as con_name, con_id, decode(open_mode,'READ WRITE',1,'READ ONLY',1,0) db_available_check from v$containers"
+
+#oracle_pdb_size
+[[metric]]
+metricName = "pdb_size"
+groupName = "tablespace"
+metricLabels = ["conid","con_name"]
+metricDesc = { value= "Gauge metric with size of pdb for specific conid"}
+scraperFlags=true
+ignorezeroresult = false
+metricGroup="/metrics_storage"
+request = "select con_id as conid, NAME as con_name, total_size as value from v$containers"
