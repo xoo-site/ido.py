@@ -9,8 +9,6 @@ This software is licensed to you under the MIT License. Looking forward to makin
 """
 
 import sys
-from requests import Request
-from django.urls.base import *
 
 if __name__ == '__main__':
     arg = sys.argv
@@ -24,4 +22,4 @@ if __name__ == '__main__':
         {"code": 1005, "message": "xxx"},
     ]
 
-    print(sorted(s))
+    print(sorted(s, key=lambda x: x.get("code")))
