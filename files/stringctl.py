@@ -21,8 +21,7 @@ def to_string(anything: Any) -> Any:
     将对象中所有子对象都转为str类型
     """
     # 简单类型 int, float, bytes 以及自定义class
-    if isinstance(anything, (float, int, object, str, bytes)):
-        print(anything)
+    if isinstance(anything, (float, int, str, bytes)):
         return str(anything)
 
     # dict 对k, v 分别递归
@@ -32,8 +31,10 @@ def to_string(anything: Any) -> Any:
             for key, value in anything.items()
         }
     # 其余可迭代类型则递归处理
-    if isinstance(anything, Iterable):
+    elif isinstance(anything, Iterable):
         return [to_string(element) for element in anything]
+
+    return str(anything)
 
 
 class A(object):
@@ -53,4 +54,6 @@ if __name__ == '__main__':
             }
         ],
     }
-    print(to_string(s))
+    r = to_string(s)
+    print(type(r))
+    print(r)
