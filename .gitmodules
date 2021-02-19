@@ -1,0 +1,3 @@
+[submodule "holmes"]
+	path = holmes
+	url = git@gitlab.woqutech.com:qmonitor/holmes.git
